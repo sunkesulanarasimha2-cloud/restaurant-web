@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spice Garden Admin</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #fff7ed;
+    }
+
+    .box {
+      max-width: 700px;
+      margin: 25px auto;
+      padding: 24px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 5px 25px #0002;
+    }
+
+    h2 {
+      color: #b45309;
+      text-align: center;
+    }
+
+    input, button, select {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      border-radius: 7px;
+    }
+
+    input, select {
+      border: 1px solid #ccc;
+      background: white;
+    }
+
+    button {
+      background: #b45309;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    #refreshButton {
+      background: #15803d;
+    }
+
+    #logoutButton {
+      background: #444;
+    }
+
+    #message {
+      overflow-wrap: anywhere;
+    }
+
+    .order {
+      padding: 15px;
+      margin-top: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+      overflow-wrap: anywhere;
+    }
+
+    .status-label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+
+    #ordersList {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="box">
+    <h2>🌶️ Spice Garden Admin</h2>
+
+    <form id="loginForm">
+      <input
+        id="email"
+        type="email"
+        placeholder="Admin email"
+        required
+      >
+
+      <input
+        id="password"
+        type="password"
+        placeholder="Password"
+        required
+      >
+
+      <button id="loginButton" type="submit">Login</button>
+    </form>
+
+    <p id="message" role="status"></p>
+
+    <section id="dashboard" hidden>
+      <button id="refreshButton" type="button">
+        🔄 Refresh Orders
+      </button>
+
+      <section id="ordersList"></section>
+
+      <button id="logoutButton" type="button">Logout</button>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    const SUPABASE_URL =
+      "https://vpnzbjcdicthjmbuqrtl.supabase.co";
+
+    const SUPABASE_PUBLISHABLE_KEY =
+      "sb_publishable_HNz0MdKgfZrKrU7crtdFcg_kzyJVeq3";
+
+    const ADMIN_UID =
+      "5cda31e5-8b26-4fce-862d-0682037ff6fc";
+
+    const supabaseClient = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_PUBLISHABLE_KEY
+    );
+
+    const form = document.getElementById("loginForm");
+    const message = document.getElementById("message");
+    const loginButton = document.getElementById("loginButton");
+    const dashboard = document.getElementById("dashboard");
+    const ordersList = document.getElementById("ordersList");
+    const refreshButton = document.getElementById("refreshButton");
+    const logoutButton = document.getElementById("logoutButton");
+
+    // Load orders from Supabase
+    async function loadOrders() {
+      message.textContent = "Loading orders...";
+      refreshButton.disabled = true;
+      ordersList.replaceChildren();
+
+      try {
+        const { data: orders, error } = await supabaseClient
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        if (!orders || orders.length === 0) {
+          message.textContent = "No orders found yet.";
+          return;
+        }
+
+        orders.forEach(function(order) {
+          const card = document.createElement("article");
+          card.className = "order";
+
+          const title = document.createElement("h3");
+          title.textContent = "Order ID: " + (order.id ?? "N/A");
+          card.appendChild(title);
+
+          const details = document.createElement("p");
+          details.style.whiteSpace = "pre-wrap";
+          details.textContent =
+            "Customer: " + (order.customer_name ?? "N/A") +
+            "\nPhone: " + (order.customer_phone ?? "N/A") +
+            "\nAddress: " + (order.delivery_address ?? "N/A") +
+            "\nTotal: ₹" + (order.total_amount ?? "N/A") +
+            "\nCurrent status: " + (order.status ?? "pending");
+
+          card.appendChild(details);
+
+          const statusLabel = document.createElement("label");
+          statusLabel.className = "status-label";
+          statusLabel.textContent = "Update order status";
+
+          const statusSelect = document.createElement("select");
+          statusSelect.setAttribute("aria-label", "Update order status");
+
+          ["pending", "preparing", "delivered"].forEach(function(status) {
+            const option = document.createElement("option");
+            option.value = status;
+            option.textContent =
+              status.charAt(0).toUpperCase() + status.slice(1);
+            statusSelect.appendChild(option);
+          });
+
+          const currentStatus = order.status || "pending";
+          statusSelect.value = currentStatus;
+
+          // Preserve unknown existing status rather than showing the wrong one
+          if (statusSelect.value !== currentStatus) {
+            const option = document.createElement("option");
+            option.value = currentStatus;
+            option.textContent = currentStatus;
+            statusSelect.appendChild(option);
+            statusSelect.value = currentStatus;
+          }
+
+          statusSelect.addEventListener("change", async function() {
+            const previousStatus = order.status || "pending";
+            statusSelect.disabled = true;
+            message.textContent = "Updating order status...";
+
+            try {
+              const { error: updateError } = await supabaseClient
+                .from("orders")
+                .update({ status: statusSelect.value })
+                .eq("id", order.id);
+
+              if (updateError) throw updateError;
+
+              order.status = statusSelect.value;
+              details.textContent =
+                "Customer: " + (order.customer_name ?? "N/A") +
+                "\nPhone: " + (order.customer_phone ?? "N/A") +
+                "\nAddress: " + (order.delivery_address ?? "N/A") +
+                "\nTotal: ₹" + (order.total_amount ?? "N/A") +
+                "\nCurrent status: " + order.status;
+
+              message.textContent = "Order status updated successfully!";
+            } catch (updateError) {
+              statusSelect.value = previousStatus;
+              message.textContent =
+                "Status update failed: " + updateError.message;
+            } finally {
+              statusSelect.disabled = false;
+            }
+          });
+
+          card.appendChild(statusLabel);
+          card.appendChild(statusSelect);
+          ordersList.appendChild(card);
+        });
+
+        message.textContent = "Orders loaded successfully!";
+      } catch (error) {
+        message.textContent = "Error loading orders: " + error.message;
+      } finally {
+        refreshButton.disabled = false;
+      }
+    }
+
+    // Admin login
+    form.addEventListener("submit", async function(event) {
+      event.preventDefault();
+
+      loginButton.disabled = true;
+      message.textContent = "Logging in...";
+
+      try {
+        const { data, error } =
+          await supabaseClient.auth.signInWithPassword({
+            email: document.getElementById("email").value.trim(),
+            password: document.getElementById("password").value
+          });
+
+        if (error) throw error;
+
+        if (!data.user || data.user.id !== ADMIN_UID) {
+          await supabaseClient.auth.signOut();
+          throw new Error("Access denied: admin only.");
+        }
+
+        form.hidden = true;
+        dashboard.hidden = false;
+
+        await loadOrders();
+      } catch (error) {
+        message.textContent = "Login failed: " + error.message;
+      } finally {
+        loginButton.disabled = false;
+      }
+    });
+
+    // Refresh orders without logging in again
+    refreshButton.addEventListener("click", loadOrders);
+
+    // Admin logout
+    logoutButton.addEventListener("click", async function() {
+      message.textContent = "Logging out...";
+      try {
+        await supabaseClient.auth.signOut();
+        ordersList.replaceChildren(); // clear rendered cards
+        dashboard.hidden = true;
+        form.reset();
+        form.hidden = false;
+        message.textContent = "Logged out successfully.";
+      } catch (error) {
+        message.textContent = "Logout failed: " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>

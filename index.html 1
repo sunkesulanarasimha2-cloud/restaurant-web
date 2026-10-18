@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spice Garden Restaurant</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <header class="header">
+        <a href="#" class="logo">🍽️ Spice Garden</a>
+        <a href="#menu" class="header-btn">Order Food</a>
+    </header>
+
+    <section class="hero">
+        <div class="hero-content">
+            <p class="eyebrow">WELCOME TO SPICE GARDEN</p>
+            <h1>Delicious Food,<br><span>Happy Moments.</span></h1>
+            <p>Fresh ingredients, authentic flavours, and food made with love.</p>
+            <a href="#menu" class="primary-btn">Explore Menu ↓</a>
+        </div>
+        <div class="hero-emoji">🍛</div>
+    </section>
+
+    <main class="container">
+        <section id="menu-section">
+            <div class="section-heading">
+                <p class="eyebrow">OUR MENU</p>
+                <h2>Explore Our Food</h2>
+                <p>Choose your favourites and add them to your cart.</p>
+            </div>
+
+            <div class="search-box">
+                <span>🔍</span>
+                <input id="foodSearch" type="text" placeholder="Search biryani, dosa, curry...">
+            </div>
+
+            <div class="categories">
+                <button type="button" class="category-btn active" data-category="All">All</button>
+                <button type="button" class="category-btn" data-category="Biryani">Biryani</button>
+                <button type="button" class="category-btn" data-category="Curry">Curry</button>
+                <button type="button" class="category-btn" data-category="Breakfast">Breakfast</button>
+                <button type="button" class="category-btn" data-category="Starters">Starters</button>
+            </div>
+
+            <div id="menu" class="menu-grid"></div>
+        </section>
+
+        <section class="cart-section" id="cart">
+            <div class="section-heading">
+                <p class="eyebrow">YOUR SELECTION</p>
+                <h2>🛒 Your Cart</h2>
+            </div>
+
+            <div id="cartItems" class="cart-items">
+                <p class="empty-message">Your cart is empty. Add some delicious food!</p>
+            </div>
+
+            <div class="cart-total">
+                <span>Total Amount</span>
+                <strong id="cartTotal">₹0</strong>
+            </div>
+
+            <form id="orderForm" class="order-form">
+                <h3>Delivery Details</h3>
+                <label for="customerName">Your Name</label>
+                <input id="customerName" type="text" placeholder="Enter your name" required>
+
+                <label for="customerPhone">Mobile Number</label>
+                <input id="customerPhone" type="tel" placeholder="10-digit mobile number" pattern="[0-9]{10}" maxlength="10" required>
+
+                <label for="customerAddress">Delivery Address</label>
+                <textarea id="customerAddress" placeholder="Enter your full address" rows="3" required></textarea>
+
+                <button id="orderButton" type="submit" class="primary-btn order-btn">
+                    Order on WhatsApp
+                </button>
+                <p class="form-note">Your order will be saved and then open in WhatsApp.</p>
+            </form>
+        </section>
+    </main>
+
+    <footer>
+        <h3>🍽️ Spice Garden Restaurant</h3>
+        <p>Made with ❤️ for food lovers.</p>
+        <p>© 2026 Spice Garden. All rights reserved.</p>
+    </footer>
+
+<script>
+"use strict";
+
+// Supabase configuration
+const SUPABASE_URL = "https://vpnzbjcdicthjmbuqrtl.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_HNz0MdKgfZrKrU7crtdFcg_kzyJVeq3";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+// Restaurant WhatsApp number, including country code
+const RESTAURANT_WHATSAPP = "919154361467";
+
+// Food menu
+const foods = [
+    { id: 1, name: "Chicken Biryani", category: "Biryani", price: 199, emoji: "🍗", image: "https://images.unsplash.com/photo-1563379091339-03246963d96c?auto=format&fit=crop&w=700&q=80" },
+    { id: 2, name: "Paneer Butter Masala", category: "Curry", price: 179, emoji: "🍛", image: "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=700&q=80" },
+    { id: 3, name: "Masala Dosa", category: "Breakfast", price: 99, emoji: "🥞", image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=700&q=80" },
+    { id: 4, name: "Veg Biryani", category: "Biryani", price: 149, emoji: "🍚", image: "https://images.unsplash.com/photo-1596797038530-2c107229654b?auto=format&fit=crop&w=700&q=80" },
+    { id: 5, name: "Chicken 65", category: "Starters", price: 169, emoji: "🍗", image: "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=700&q=80" },
+    { id: 6, name: "Butter Naan", category: "Breakfast", price: 45, emoji: "🫓", image: "https://images.unsplash.com/photo-1605539581470-5d8e6a2d7b7a?auto=format&fit=crop&w=700&q=80" },
+    { id: 7, name: "Fish Fry", category: "Starters", price: 189, emoji: "🐟", image: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80" },
+    { id: 8, name: "Dal Tadka", category: "Curry", price: 129, emoji: "🥣", image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=700&q=80" },
+    { id: 9, name: "Idli Sambar", category: "Breakfast", price: 69, emoji: "🥘", image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=700&q=80" },
+    { id: 10, name: "Gobi Manchurian", category: "Starters", price: 139, emoji: "🥦", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=700&q=80" }
+];
+
+let cart = {};
+let selectedCategory = "All";
+let searchQuery = "";
+
+const menu = document.getElementById("menu");
+const foodSearch = document.getElementById("foodSearch");
+const orderForm = document.getElementById("orderForm");
+const orderButton = document.getElementById("orderButton");
+
+function renderMenu() {
+    const filteredFoods = foods.filter(food => {
+        const matchesCategory = selectedCategory === "All" || food.category === selectedCategory;
+        const matchesSearch = food.name.toLowerCase().includes(searchQuery) || food.category.toLowerCase().includes(searchQuery);
+        return matchesCategory && matchesSearch;
+    });
+
+    if (filteredFoods.length === 0) {
+        menu.innerHTML = '<p class="empty-message">No food found. Try another search!</p>';
+        return;
+    }
+
+    menu.innerHTML = filteredFoods.map(food => `
+        <article class="food-card">
+            <div class="food-image-wrap">
+                <img class="food-image" src="${food.image}" alt="${food.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+                <div class="food-fallback" style="display:none">${food.emoji}</div>
+                <span class="image-label">${food.category}</span>
+            </div>
+            <div class="food-details">
+                <h3>${food.name}</h3>
+                <div class="food-bottom">
+                    <strong>₹${food.price}</strong>
+                    <button type="button" class="add-btn" data-id="${food.id}">
+                        + Add
+                    </button>
+                </div>
+            </div>
+        </article>
+    `).join("");
+}
+
+function addToCart(id) {
+    const food = foods.find(item => item.id === id);
+    if (!food) return;
+
+    if (!cart[id]) {
+        cart[id] = { ...food, quantity: 0 };
+    }
+    cart[id].quantity++;
+    renderCart();
+}
+
+function changeQuantity(id, amount) {
+    if (!cart[id]) return;
+
+    cart[id].quantity += amount;
+    if (cart[id].quantity <= 0) {
+        delete cart[id];
+    }
+    renderCart();
+}
+
+function renderCart() {
+    const cartItemsElement = document.getElementById("cartItems");
+    const items = Object.values(cart);
+
+    if (items.length === 0) {
+        cartItemsElement.innerHTML = '<p class="empty-message">Your cart is empty. Add some delicious food!</p>';
+    } else {
+        cartItemsElement.innerHTML = items.map(item => `
+            <div class="cart-item">
+                <div class="cart-item-info">
+                    <strong>${item.emoji} ${item.name}</strong>
+                    <span>₹${item.price} × ${item.quantity}</span>
+                </div>
+                <div class="quantity-controls">
+                    <button type="button" data-id="${item.id}" data-change="-1" aria-label="Decrease quantity">−</button>
+                    <span>${item.quantity}</span>
+                    <button type="button" data-id="${item.id}" data-change="1" aria-label="Increase quantity">+</button>
+                </div>
+                <strong>₹${item.price * item.quantity}</strong>
+            </div>
+        `).join("");
+    }
+
+    const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    document.getElementById("cartTotal").textContent = `₹${total}`;
+}
+
+// Add food to cart
+menu.addEventListener("click", event => {
+    const button = event.target.closest(".add-btn");
+    if (button) {
+        addToCart(Number(button.dataset.id));
+    }
+});
+
+// Change cart quantities
+document.getElementById("cartItems").addEventListener("click", event => {
+    const button = event.target.closest("button[data-change]");
+    if (button) {
+        changeQuantity(Number(button.dataset.id), Number(button.dataset.change));
+    }
+});
+
+// Category filters
+document.querySelectorAll(".category-btn").forEach(button => {
+    button.addEventListener("click", () => {
+        selectedCategory = button.dataset.category;
+        document.querySelectorAll(".category-btn").forEach(btn => {
+            btn.classList.toggle("active", btn === button);
+        });
+        renderMenu();
+    });
+});
+
